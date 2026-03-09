@@ -30,22 +30,36 @@ echo ""
 # Install Node.js 18
 echo "Installing Node.js 18..."
 curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-apt-get install -y nodejs
+apt-get install -y nodejs git
 echo "Node.js version: $(node --version)"
 echo ""
 
 # Create app directory and clone repo
 echo "Setting up application directory..."
-mkdir -p /opt/dns-proxy/{certs,logs}
+rm -rf /opt/dns-proxy
+mkdir -p /opt/dns-proxy
 cd /opt/dns-proxy
 
 # Clone from GitHub
 echo "Cloning repository..."
-git clone https://github.com/raya-ac/dns-proxy.git . 2>/dev/null || git pull
+git clone https://github.com/raya-ac/dns-proxy.git . 
+if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to clone repository. Check your internet connection."
+    exit 1
+fi
+echo "Cloned successfully!"
+
+# Create directories
+mkdir -p /opt/dns-proxy/{certs,logs}
+echo ""
 
 # Install dependencies
 echo "Installing npm dependencies..."
 npm install --omit=dev
+if [ $? -ne 0 ]; then
+    echo "ERROR: npm install failed"
+    exit 1
+fi
 echo ""
 
 # Generate CA certificate
