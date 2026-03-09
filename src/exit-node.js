@@ -55,7 +55,7 @@ class ExitNodeManager extends EventEmitter {
    */
   async _checkHealth() {
     const startTime = Date.now();
-    
+
     try {
       // Test connectivity based on method
       if (this.method === 'socks5') {
@@ -64,8 +64,11 @@ class ExitNodeManager extends EventEmitter {
         await this._testHttpProxyConnectivity();
       } else if (this.method === 'wireguard') {
         await this._testWireGuardConnectivity();
+      } else if (this.method === 'direct') {
+        // Direct mode - just test DNS resolution
+        await this._resolveWithAsianDns('1.1.1.1');
       }
-      
+
       const latency = Date.now() - startTime;
       this.health = {
         status: 'healthy',
@@ -73,13 +76,13 @@ class ExitNodeManager extends EventEmitter {
         lastCheck: new Date().toISOString(),
         consecutiveFailures: 0
       };
-      
+
       this.emit('health', { ...this.health, method: this.method, region: this.regionLabel });
     } catch (error) {
       this.health.consecutiveFailures++;
       this.health.status = this.health.consecutiveFailures >= 3 ? 'unhealthy' : 'degraded';
       this.health.lastCheck = new Date().toISOString();
-      
+
       this.emit('health', { 
         ...this.health, 
         method: this.method, 
@@ -199,9 +202,12 @@ class ExitNodeManager extends EventEmitter {
       return this._createHttpProxyAgent(isHttps);
     } else if (this.method === 'wireguard') {
       return this._createWireGuardAgent(isHttps);
+    } else if (this.method === 'direct') {
+      // Direct connection - server itself is the exit node
+      return new (isHttps ? https.Agent : http.Agent)();
     }
-    
-    // Default to direct connection (should not happen in normal operation)
+
+    // Default to direct connection
     return isHttps ? new https.Agent() : new http.Agent();
   }
 

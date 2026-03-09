@@ -1,15 +1,30 @@
 #!/bin/bash
 # DNS Proxy Server Setup Script
 # Run this on your Linux server as root
+# This server IS the exit node - traffic exits directly from here
 
 set -e
 
 echo "=== DNS Proxy Server Setup ==="
+echo "This server will be the exit node - all proxied traffic exits from here"
 echo ""
 
 # Get server's primary IP
 SERVER_IP=$(hostname -I | awk '{print $1}')
 echo "Server IP: $SERVER_IP"
+
+# Detect region (simple heuristic based on common Asian IP ranges)
+REGION="unknown"
+if [[ $SERVER_IP == 103.* ]] || [[ $SERVER_IP == 101.* ]] || [[ $SERVER_IP == 175.* ]]; then
+    REGION="sg"
+    echo "Detected region: Singapore (SG)"
+elif [[ $SERVER_IP == 45.* ]] || [[ $SERVER_IP == 104.* ]]; then
+    REGION="us"
+    echo "Detected region: United States (US)"
+elif [[ $SERVER_IP == 79.* ]] || [[ $SERVER_IP == 88.* ]]; then
+    REGION="eu"
+    echo "Detected region: Europe (EU)"
+fi
 echo ""
 
 # Install Node.js 18
@@ -24,9 +39,10 @@ echo "Setting up application directory..."
 mkdir -p /opt/dns-proxy/{certs,logs}
 cd /opt/dns-proxy
 
-# Copy project files (if running from uploaded tarball)
-if [ -f /tmp/dns-proxy.tar.gz ]; then
-    tar -xzf /tmp/dns-proxy.tar.gz -C /opt/dns-proxy --strip-components=1
+# Clone from GitHub if not already present
+if [ ! -f package.json ]; then
+    echo "Cloning repository..."
+    git clone https://github.com/raya-ac/dns-proxy.git .
 fi
 
 # Install dependencies
@@ -39,8 +55,8 @@ echo "Generating CA certificate..."
 npm run generate-ca
 echo ""
 
-# Create config file
-echo "Creating configuration..."
+# Create config file for direct mode (server IS the exit node)
+echo "Creating configuration (direct mode - server is exit node)..."
 cat > /opt/dns-proxy/config.json << EOF
 {
   "proxy_ip": "$SERVER_IP",
@@ -51,13 +67,20 @@ cat > /opt/dns-proxy/config.json << EOF
     "cache_ttl": 300
   },
   "asian_exit": {
-    "method": "socks5",
+    "method": "direct",
     "socks5": {
-      "host": "your-asian-vps.example.com",
-      "port": 1080,
+      "host": "",
+      "port": 0,
       "username": "",
       "password": ""
-    }
+    },
+    "http_proxy": {
+      "host": "",
+      "port": 0
+    },
+    "wireguard_interface": "",
+    "dns_resolvers": ["1.0.0.1", "8.8.8.8"],
+    "region_label": "$REGION"
   },
   "proxy": {
     "http_port": 6000,
@@ -81,7 +104,6 @@ cat > /opt/dns-proxy/config.json << EOF
 EOF
 
 echo "Config created at /opt/dns-proxy/config.json"
-echo "EDIT THIS FILE to add your Asian VPS details!"
 echo ""
 
 # Create systemd service
@@ -112,19 +134,30 @@ systemctl daemon-reload
 systemctl enable dns-proxy
 systemctl start dns-proxy
 
+# Wait for service to start
+sleep 2
+
 echo ""
 echo "=== Setup Complete ==="
 echo ""
 echo "Service status:"
-systemctl status dns-proxy --no-pager
+systemctl status dns-proxy --no-pager || true
 echo ""
 echo "Ports in use:"
-netstat -tlnp | grep -E ':(53|6000|443|3000)\s'
+ss -tlnp | grep -E ':(53|6000|443|3000)\s' || netstat -tlnp | grep -E ':(53|6000|443|3000)\s' || true
 echo ""
-echo "=== Next Steps ==="
-echo "1. Edit /opt/dns-proxy/config.json with your Asian VPS details"
-echo "2. Restart the service: systemctl restart dns-proxy"
-echo "3. Access dashboard: http://$SERVER_IP:3000"
-echo "4. Point your DNS to $SERVER_IP"
-echo "5. Install the CA cert from: http://$SERVER_IP:3000/api/ca-cert"
+echo "=== What This Does ==="
+echo "- DNS queries for proxied domains resolve to: $SERVER_IP"
+echo "- Traffic exits directly from this server (no tunnel)"
+echo "- Origins see this server's IP: $SERVER_IP"
+echo ""
+echo "=== Access ==="
+echo "Dashboard: http://$SERVER_IP:3000"
+echo "Set your DNS to: $SERVER_IP"
+echo "Download CA cert: http://$SERVER_IP:3000/api/ca-cert"
+echo ""
+echo "=== Manage ==="
+echo "Edit domains: nano /opt/dns-proxy/config.json"
+echo "Restart: systemctl restart dns-proxy"
+echo "Logs: journalctl -u dns-proxy -f"
 echo ""
