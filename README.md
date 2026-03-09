@@ -4,6 +4,20 @@ This proxy intercepts DNS queries and routes specific domains through an Asian e
 
 The point is simple: you can access what you need through an Asian exit node without your everyday browsing getting routed overseas. Your banking stays local. Your Australian services stay local. Only the stuff that's blocked or restricted goes through the proxy.
 
+## Why This Exists
+
+Australia's internet has gotten progressively more restricted over the past few years:
+
+- **Age verification laws** — The Online Safety Amendment Act 2024 requires age verification for adult content, with ISPs expected to enforce blocks starting late 2024. Multiple sites have already been caught up in the initial enforcement waves.
+
+- **Gambling blocks** — Major betting sites are now blocked at the ISP level under the Interactive Gambling Act amendments.
+
+- **Copyright blocks** — The Federal Court continues to order ISPs to block torrent and streaming sites on behalf of rights holders.
+
+- **Geo-restricted streaming** — Netflix, Disney+, and others still serve different libraries here. Some services aren't available at all.
+
+This proxy gives you a way around those blocks without routing all your traffic through another country. Your everyday browsing — banking, government services, local news — stays on Australian IPs. Only the domains you explicitly configure go through the Asian exit node.
+
 ## What It Does
 
 **DNS routing:**
