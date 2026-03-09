@@ -460,14 +460,7 @@ class DnsServer extends EventEmitter {
    */
   _estimateRecordSize(record) {
     let size = 0;
-    // Name: each label needs 1 byte for length prefix, plus 1 byte for null terminator
-    const labels = record.name.split('.');
-    for (const label of labels) {
-      if (label.length > 0) {
-        size += 1 + label.length; // length byte + label
-      }
-    }
-    size += 1; // null terminator
+    size += 2; // Compression pointer (0xC00C)
     size += 10; // Type (2) + Class (2) + TTL (4) + Data length (2)
 
     if (record.type === DNS_TYPES.A) {
@@ -502,12 +495,13 @@ class DnsServer extends EventEmitter {
    * Write a DNS record to buffer
    */
   _writeRecord(buffer, record, offset) {
-    const nameOffset = offset;
-    offset = this._writeName(buffer, record.name, offset);
-    
+    // Use compression pointer if record name matches question (offset 12)
+    // Compression pointer: 0xC0 | (offset >> 8), offset & 0xFF
+    buffer.writeUInt16BE(0xC00C, offset); offset += 2;
+
     buffer.writeUInt16BE(record.type, offset); offset += 2;
     buffer.writeUInt16BE(record.class, offset); offset += 2;
-    
+
     // Prepare data
     let data;
     if (record.type === DNS_TYPES.A) {
@@ -517,11 +511,11 @@ class DnsServer extends EventEmitter {
     } else {
       data = Buffer.from(String(record.data), 'ascii');
     }
-    
+
     buffer.writeUInt16BE(data.length, offset); offset += 2;
     data.copy(buffer, offset);
     offset += data.length;
-    
+
     return offset;
   }
 
