@@ -34,20 +34,18 @@ apt-get install -y nodejs
 echo "Node.js version: $(node --version)"
 echo ""
 
-# Create app directory
+# Create app directory and clone repo
 echo "Setting up application directory..."
 mkdir -p /opt/dns-proxy/{certs,logs}
 cd /opt/dns-proxy
 
-# Clone from GitHub if not already present
-if [ ! -f package.json ]; then
-    echo "Cloning repository..."
-    git clone https://github.com/raya-ac/dns-proxy.git .
-fi
+# Clone from GitHub
+echo "Cloning repository..."
+git clone https://github.com/raya-ac/dns-proxy.git . 2>/dev/null || git pull
 
 # Install dependencies
 echo "Installing npm dependencies..."
-npm install --production
+npm install --omit=dev
 echo ""
 
 # Generate CA certificate
