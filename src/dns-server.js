@@ -524,8 +524,48 @@ class DnsServer extends EventEmitter {
    */
   _ipToBuffer(ip) {
     if (ip.includes(':')) {
-      // IPv6
-      return Buffer.from(ip.split(':').map(s => parseInt(s || '0', 16) || 0));
+      // IPv6 - parse each 16-bit group and write as big-endian
+      const buffer = Buffer.alloc(16);
+      let offset = 0;
+      
+      // Handle :: expansion
+      let parts = ip.split(':');
+      const expanded = [];
+      let emptyFound = false;
+      
+      for (const part of parts) {
+        if (part === '') {
+          if (!emptyFound) {
+            // Insert placeholder for ::
+            expanded.push(null);
+            emptyFound = true;
+          }
+        } else {
+          expanded.push(parseInt(part, 16));
+        }
+      }
+      
+      // Calculate how many zeros to insert
+      const actualGroups = expanded.filter(p => p !== null).length;
+      const zerosToInsert = 8 - actualGroups;
+      
+      // Build final array
+      const groups = [];
+      for (const part of expanded) {
+        if (part === null) {
+          for (let i = 0; i < zerosToInsert; i++) groups.push(0);
+        } else {
+          groups.push(part);
+        }
+      }
+      
+      // Write each 16-bit group as big-endian
+      for (const group of groups) {
+        buffer.writeUInt16BE(group, offset);
+        offset += 2;
+      }
+      
+      return buffer;
     } else {
       // IPv4
       return Buffer.from(ip.split('.').map(s => parseInt(s, 10)));
