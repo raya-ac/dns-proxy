@@ -160,21 +160,21 @@ class ProxyServer extends EventEmitter {
     const startTime = Date.now();
     const host = this._getHost(req);
     const path = req.url;
-    
-    this.logger.debug('Proxy request', { 
-      method: req.method, 
-      host, 
+
+    this.logger.debug('Proxy request', {
+      method: req.method,
+      host,
       path,
-      https: isHttps 
+      https: isHttps
     });
-    
+
     try {
       // Get the real origin IP through Asian DNS
       const originIp = await this.exitNode.resolveAsian(host);
-      
+
       // Create agent for exit node routing
       const agent = this.exitNode.createAgent(isHttps);
-      
+
       // Build upstream request options
       const options = {
         hostname: originIp,
@@ -184,7 +184,7 @@ class ProxyServer extends EventEmitter {
         headers: this._prepareHeaders(req, host),
         agent,
         timeout: this.timeout,
-        servername: host, // For SNI
+        servername: this._isIpAddress(host) ? undefined : host, // SNI only for domain names
         rejectUnauthorized: false // Accept any cert from origin
       };
       
@@ -286,16 +286,16 @@ class ProxyServer extends EventEmitter {
    */
   async _handleUpgrade(req, socket, head, isHttps) {
     const host = this._getHost(req);
-    
+
     this.logger.debug('WebSocket upgrade', { host, url: req.url });
-    
+
     try {
       // Get origin IP through Asian DNS
       const originIp = await this.exitNode.resolveAsian(host);
-      
+
       // Create agent for exit node routing
       const agent = this.exitNode.createAgent(isHttps);
-      
+
       // Build upstream request options for WebSocket
       const options = {
         hostname: originIp,
@@ -304,7 +304,7 @@ class ProxyServer extends EventEmitter {
         method: 'GET',
         headers: this._prepareHeaders(req, host),
         agent,
-        servername: host,
+        servername: this._isIpAddress(host) ? undefined : host,
         rejectUnauthorized: false
       };
       
@@ -353,6 +353,25 @@ class ProxyServer extends EventEmitter {
    */
   _getHost(req) {
     return req.headers.host?.split(':')[0] || req.socket.servername || 'localhost';
+  }
+
+  /**
+   * Check if a string is an IP address (IPv4 or IPv6)
+   */
+  _isIpAddress(host) {
+    // IPv4 pattern
+    const ipv4Pattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+    if (ipv4Pattern.test(host)) {
+      // Validate each octet is 0-255
+      const octets = host.split('.');
+      return octets.every(octet => {
+        const num = parseInt(octet, 10);
+        return num >= 0 && num <= 255;
+      });
+    }
+    // IPv6 pattern (simplified - covers most common formats)
+    const ipv6Pattern = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$/;
+    return ipv6Pattern.test(host);
   }
 
   /**
