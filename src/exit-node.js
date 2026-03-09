@@ -310,15 +310,21 @@ class ExitNodeManager extends EventEmitter {
   /**
    * Resolve a domain through Asian DNS
    * This ensures CDN/geo-routing serves Asian-region content
+   * If the input is already an IP address, returns it directly
    */
   async resolveAsian(domain, type = 'A') {
+    // If already an IP address, return it directly (skip DNS resolution)
+    if (this._isIpAddress(domain)) {
+      return domain;
+    }
+
     const resolvers = this.asianDnsResolvers;
-    
+
     for (const resolverIp of resolvers) {
       try {
         const resolver = new dns.Resolver();
         resolver.setServers([resolverIp]);
-        
+
         if (type === 'A') {
           const addresses = await resolver.resolve4(domain);
           return addresses[0];
@@ -330,7 +336,7 @@ class ExitNodeManager extends EventEmitter {
         // Try next resolver
       }
     }
-    
+
     // Fallback to system DNS (last resort)
     try {
       if (type === 'A') {
@@ -343,6 +349,25 @@ class ExitNodeManager extends EventEmitter {
     } catch (e) {
       throw new Error(`Failed to resolve ${domain} through any DNS resolver`);
     }
+  }
+
+  /**
+   * Check if a string is an IP address (IPv4 or IPv6)
+   */
+  _isIpAddress(host) {
+    // IPv4 pattern
+    const ipv4Pattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+    if (ipv4Pattern.test(host)) {
+      // Validate each octet is 0-255
+      const octets = host.split('.');
+      return octets.every(octet => {
+        const num = parseInt(octet, 10);
+        return num >= 0 && num <= 255;
+      });
+    }
+    // IPv6 pattern (simplified - covers most common formats)
+    const ipv6Pattern = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$/;
+    return ipv6Pattern.test(host);
   }
 
   /**
