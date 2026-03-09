@@ -239,19 +239,28 @@ class DnsServer extends EventEmitter {
     let jumped = false;
     let originalOffset = offset;
     let maxJumps = 10; // Prevent infinite loops
-    
+
     while (true) {
-      if (offset >= buffer.length) break;
-      
+      if (offset >= buffer.length) {
+        // Reached end of buffer
+        if (!jumped) originalOffset = offset;
+        break;
+      }
+
       const len = buffer.readUInt8(offset);
-      
+
       if (len === 0) {
         if (!jumped) offset++;
         break;
       }
-      
+
       // Check for compression pointer (top 2 bits set)
       if ((len & 0xC0) === 0xC0) {
+        if (offset + 1 >= buffer.length) {
+          // Not enough bytes for pointer
+          if (!jumped) originalOffset = offset + 1;
+          break;
+        }
         const pointer = buffer.readUInt16BE(offset) & 0x3FFF;
         if (!jumped) {
           originalOffset = offset + 2;
@@ -262,15 +271,20 @@ class DnsServer extends EventEmitter {
         if (maxJumps <= 0) break;
         continue;
       }
-      
+
       offset++;
+      // Sanity check on label length
+      if (len > 63 || offset + len > buffer.length) {
+        if (!jumped) originalOffset = offset;
+        break;
+      }
       const label = buffer.slice(offset, offset + len).toString('ascii');
       labels.push(label);
       offset += len;
     }
-    
+
     return {
-      name: labels.join('.'),
+      name: labels.join('.') || 'unknown',
       offset: jumped ? originalOffset : offset
     };
   }
