@@ -239,11 +239,12 @@ class DnsServer extends EventEmitter {
     let jumped = false;
     let originalOffset = offset;
     let maxJumps = 10; // Prevent infinite loops
+    const maxLength = buffer.length - 1; // Max valid offset
 
     while (true) {
-      if (offset >= buffer.length) {
-        // Reached end of buffer
-        if (!jumped) originalOffset = offset;
+      if (offset < 0 || offset > maxLength) {
+        // Out of bounds
+        if (!jumped) originalOffset = Math.min(offset, buffer.length);
         break;
       }
 
@@ -256,12 +257,17 @@ class DnsServer extends EventEmitter {
 
       // Check for compression pointer (top 2 bits set)
       if ((len & 0xC0) === 0xC0) {
-        if (offset + 1 >= buffer.length) {
+        if (offset + 1 > maxLength) {
           // Not enough bytes for pointer
-          if (!jumped) originalOffset = offset + 1;
+          if (!jumped) originalOffset = Math.min(offset + 1, buffer.length);
           break;
         }
         const pointer = buffer.readUInt16BE(offset) & 0x3FFF;
+        if (pointer >= buffer.length) {
+          // Invalid pointer
+          if (!jumped) originalOffset = Math.min(offset + 2, buffer.length);
+          break;
+        }
         if (!jumped) {
           originalOffset = offset + 2;
         }
@@ -275,7 +281,7 @@ class DnsServer extends EventEmitter {
       offset++;
       // Sanity check on label length
       if (len > 63 || offset + len > buffer.length) {
-        if (!jumped) originalOffset = offset;
+        if (!jumped) originalOffset = Math.min(offset, buffer.length);
         break;
       }
       const label = buffer.slice(offset, offset + len).toString('ascii');
