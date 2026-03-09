@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DNS Proxy Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-tertiary: #21262d;
+      --border: #30363d;
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --text-muted: #6e7681;
+      --accent-green: #00ff88;
+      --accent-red: #ff4444;
+      --accent-orange: #ffaa00;
+      --accent-blue: #58a6ff;
+      --accent-purple: #bc8cff;
+      --font-mono: 'JetBrains Mono', Consolas, monospace;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: var(--font-mono);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    /* Top Bar */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--accent-green);
+      letter-spacing: -0.5px;
+    }
+
+    .top-bar-stats {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .uptime {
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .exit-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .exit-status.healthy {
+      background: rgba(0, 255, 136, 0.15);
+      color: var(--accent-green);
+      border: 1px solid rgba(0, 255, 136, 0.3);
+    }
+
+    .exit-status.degraded {
+      background: rgba(255, 170, 0, 0.15);
+      color: var(--accent-orange);
+      border: 1px solid rgba(255, 170, 0, 0.3);
+    }
+
+    .exit-status.unhealthy {
+      background: rgba(255, 68, 68, 0.15);
+      color: var(--accent-red);
+      border: 1px solid rgba(255, 68, 68, 0.3);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      padding: 16px 24px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab {
+      padding: 8px 16px;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+
+    .tab:hover {
+      color: var(--text-primary);
+    }
+
+    .tab.active {
+      color: var(--accent-green);
+      border-bottom-color: var(--accent-green);
+    }
+
+    /* Main Content */
+    .main {
+      padding: 24px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* DNS Log Table */
+    .log-container {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-tertiary);
+    }
+
+    .log-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .log-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .filter-input {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 6px 12px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      width: 200px;
+    }
+
+    .filter-input:focus {
+      outline: none;
+      border-color: var(--accent-green);
+    }
+
+    .btn {
+      padding: 6px 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn:hover {
+      background: var(--border);
+    }
+
+    .btn.active {
+      background: var(--accent-green);
+      color: var(--bg-primary);
+      border-color: var(--accent-green);
+    }
+
+    .log-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .log-table th {
+      text-align: left;
+      padding: 10px 16px;
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      font-weight: 500;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .log-table td {
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .log-table tr:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .route-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .route-tag.au {
+      background: rgba(88, 166, 255, 0.15);
+      color: var(--accent-blue);
+    }
+
+    .route-tag.asia {
+      background: rgba(188, 140, 255, 0.15);
+      color: var(--accent-purple);
+    }
+
+    .timestamp {
+      color: var(--text-muted);
+    }
+
+    .domain {
+      color: var(--text-primary);
+    }
+
+    .query-type {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .latency {
+      color: var(--text-secondary);
+    }
+
+    /* Domains Manager */
+    .domains-container {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .domains-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-tertiary);
+    }
+
+    .add-domain-form {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .add-domain-form input {
+      flex: 1;
+      max-width: 400px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 8px 12px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+
+    .add-domain-form input:focus {
+      outline: none;
+      border-color: var(--accent-green);
+    }
+
+    .domain-list {
+      max-height: 500px;
+      overflow-y: auto;
+    }
+
+    .domain-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+
+    .domain-item:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .domain-item:last-child {
+      border-bottom: none;
+    }
+
+    .domain-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .domain-pattern {
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+
+    .domain-wildcard {
+      font-size: 11px;
+      color: var(--text-muted);
+      padding: 2px 6px;
+      background: var(--bg-tertiary);
+      border-radius: 3px;
+    }
+
+    .domain-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      background: var(--bg-tertiary);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle-switch.enabled {
+      background: var(--accent-green);
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: var(--bg-primary);
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+
+    .toggle-switch.enabled::after {
+      transform: translateX(20px);
+    }
+
+    .delete-btn {
+      padding: 4px 8px;
+      background: transparent;
+      border: 1px solid var(--accent-red);
+      border-radius: 4px;
+      color: var(--accent-red);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .delete-btn:hover {
+      background: var(--accent-red);
+      color: var(--bg-primary);
+    }
+
+    .import-export {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .drop-zone {
+      flex: 1;
+      border: 2px dashed var(--border);
+      border-radius: 6px;
+      padding: 24px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 12px;
+      transition: all 0.15s;
+    }
+
+    .drop-zone.dragover {
+      border-color: var(--accent-green);
+      background: rgba(0, 255, 136, 0.05);
+      color: var(--accent-green);
+    }
+
+    /* Stats Section */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 20px;
+    }
+
+    .stat-card-title {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .stat-detail {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .stat-row:last-child {
+      border-bottom: none;
+    }
+
+    .stat-label {
+      color: var(--text-secondary);
+    }
+
+    .stat-num {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    /* Sparkline Chart */
+    .chart-container {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 20px;
+    }
+
+    .chart-title {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+
+    .sparkline {
+      width: 100%;
+      height: 120px;
+    }
+
+    .sparkline line {
+      stroke: var(--accent-green);
+      stroke-width: 2;
+      fill: none;
+    }
+
+    .sparkline area {
+      fill: rgba(0, 255, 136, 0.1);
+      stroke: none;
+    }
+
+    /* Error Banner */
+    .error-banner {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--accent-red);
+      color: var(--bg-primary);
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      display: none;
+      z-index: 1000;
+    }
+
+    .error-banner.show {
+      display: block;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-primary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .top-bar {
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .tabs {
+        overflow-x: auto;
+      }
+
+      .log-table {
+        font-size: 11px;
+      }
+
+      .log-table th,
+      .log-table td {
+        padding: 6px 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <div class="logo">DNS PROXY</div>
+    <div class="top-bar-stats">
+      <div class="uptime" id="uptime">Uptime: --:--:--</div>
+      <div class="exit-status" id="exitStatus">
+        <span class="status-dot"></span>
+        <span id="exitStatusText">Connecting...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" data-tab="logs">DNS Log</button>
+    <button class="tab" data-tab="domains">Proxied Domains</button>
+    <button class="tab" data-tab="stats">Stats &amp; Health</button>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main">
+    <!-- DNS Log Tab -->
+    <div class="tab-content active" id="tab-logs">
+      <div class="log-container">
+        <div class="log-header">
+          <span class="log-title">Live DNS Queries</span>
+          <div class="log-controls">
+            <input type="text" class="filter-input" id="logFilter" placeholder="Filter by domain...">
+            <button class="btn" id="pauseBtn">Pause</button>
+            <select class="filter-input" id="routeFilter" style="width: auto;">
+              <option value="all">All Routes</option>
+              <option value="au">AU Only</option>
+              <option value="asia">Asia Only</option>
+            </select>
+          </div>
+        </div>
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Source</th>
+              <th>Domain</th>
+              <th>Type</th>
+              <th>Route</th>
+              <th>Response IP</th>
+              <th>Latency</th>
+            </tr>
+          </thead>
+          <tbody id="logBody">
+            <!-- Log entries inserted here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Domains Tab -->
+    <div class="tab-content" id="tab-domains">
+      <div class="domains-container">
+        <div class="domains-header">
+          <form class="add-domain-form" id="addDomainForm">
+            <input type="text" id="domainInput" placeholder="Enter domain (e.g., example.com or *.example.com)" required>
+            <button type="submit" class="btn">Add Domain</button>
+          </form>
+          <div class="import-export">
+            <button class="btn" id="exportBtn">Export Domains</button>
+            <div class="drop-zone" id="dropZone">
+              Drop .txt file here to import domains
+            </div>
+          </div>
+        </div>
+        <div class="domain-list" id="domainList">
+          <!-- Domain items inserted here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats Tab -->
+    <div class="tab-content" id="tab-stats">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-card-title">DNS Queries</div>
+          <div class="stat-value" id="totalQueries">0</div>
+          <div class="stat-row">
+            <span class="stat-label">Proxied (Asia)</span>
+            <span class="stat-num" id="proxiedQueries">0</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Forwarded (AU)</span>
+            <span class="stat-num" id="forwardedQueries">0</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Cache Hit Rate</span>
+            <span class="stat-num" id="cacheHitRate">0%</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-card-title">Proxy Traffic</div>
+          <div class="stat-value" id="activeConnections">0</div>
+          <div class="stat-detail">Active Connections</div>
+          <div class="stat-row">
+            <span class="stat-label">Total Requests</span>
+            <span class="stat-num" id="totalRequests">0</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Bandwidth Up</span>
+            <span class="stat-num" id="bandwidthUp">0 B</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Bandwidth Down</span>
+            <span class="stat-num" id="bandwidthDown">0 B</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-card-title">Exit Node</div>
+          <div class="stat-value" id="exitMethod">--</div>
+          <div class="stat-detail" id="exitHost">--</div>
+          <div class="stat-row">
+            <span class="stat-label">Region</span>
+            <span class="stat-num" id="exitRegion">--</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Latency</span>
+            <span class="stat-num" id="exitLatency">--</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <div class="chart-title">Requests per Minute (Last 60 Minutes)</div>
+        <svg class="sparkline" id="rpmChart" viewBox="0 0 600 120">
+          <!-- Chart rendered by JS -->
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error Banner -->
+  <div class="error-banner" id="errorBanner"></div>
+
+  <script>
+    // State
+    let ws = null;
+    let logEntries = [];
+    let isPaused = false;
+    let stats = {
+      dns: { totalQueries: 0, proxied: 0, forwarded: 0, cacheHits: 0 },
+      proxy: { activeConnections: 0, totalRequests: 0, bandwidthUp: 0, bandwidthDown: 0 },
+      rpm: []
+    };
+    let exitHealth = { status: 'unknown', method: '', region: '', latencyMs: null };
+    let uptimeSeconds = 0;
+    let reconnectDelay = 1000;
+
+    // DOM Elements
+    const logBody = document.getElementById('logBody');
+    const domainList = document.getElementById('domainList');
+    const logFilter = document.getElementById('logFilter');
+    const routeFilter = document.getElementById('routeFilter');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const addDomainForm = document.getElementById('addDomainForm');
+    const domainInput = document.getElementById('domainInput');
+    const exportBtn = document.getElementById('exportBtn');
+    const dropZone = document.getElementById('dropZone');
+    const errorBanner = document.getElementById('errorBanner');
+    const rpmChart = document.getElementById('rpmChart');
+
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+      });
+    });
+
+    // WebSocket connection
+    function connectWebSocket() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/api/ws`;
+      
+      ws = new WebSocket(wsUrl);
+      
+      ws.onopen = () => {
+        console.log('WebSocket connected');
+        reconnectDelay = 1000;
+        hideError();
+      };
+      
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          handleMessage(message);
+        } catch (e) {
+          console.error('Failed to parse message:', e);
+        }
+      };
+      
+      ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        showError('Disconnected from server. Reconnecting...');
+        setTimeout(connectWebSocket, reconnectDelay);
+        reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+      };
+      
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+    }
+
+    function handleMessage(message) {
+      switch (message.type) {
+        case 'dns_log':
+          handleDnsLog(message.data);
+          break;
+        case 'stats':
+          handleStats(message.data);
+          break;
+        case 'exit_health':
+          handleExitHealth(message.data);
+          break;
+      }
+    }
+
+    function handleDnsLog(entry) {
+      logEntries.push(entry);
+      if (logEntries.length > 500) {
+        logEntries.shift();
+      }
+      if (!isPaused) {
+        renderLogs();
+      }
+    }
+
+    function handleStats(data) {
+      stats = data;
+      updateStatsDisplay();
+      renderSparkline();
+    }
+
+    function handleExitHealth(data) {
+      exitHealth = data;
+      updateExitStatus();
+    }
+
+    // Render logs
+    function renderLogs() {
+      const filterText = logFilter.value.toLowerCase();
+      const routeValue = routeFilter.value;
+      
+      const filtered = logEntries.filter(entry => {
+        if (filterText && !entry.domain.toLowerCase().includes(filterText)) {
+          return false;
+        }
+        if (routeValue !== 'all' && entry.route !== routeValue) {
+          return false;
+        }
+        return true;
+      });
+      
+      logBody.innerHTML = filtered.slice(-100).reverse().map(entry => `
+        <tr>
+          <td class="timestamp">${formatTime(entry.timestamp)}</td>
+          <td>${entry.source}</td>
+          <td class="domain">${escapeHtml(entry.domain)}</td>
+          <td class="query-type">${entry.queryType}</td>
+          <td><span class="route-tag ${entry.route}">${entry.route.toUpperCase()}</span></td>
+          <td>${entry.responseIp || '-'}</td>
+          <td class="latency">${entry.latencyMs}ms</td>
+        </tr>
+      `).join('');
+    }
+
+    // Update stats display
+    function updateStatsDisplay() {
+      document.getElementById('totalQueries').textContent = formatNumber(stats.dns.totalQueries);
+      document.getElementById('proxiedQueries').textContent = formatNumber(stats.dns.proxied);
+      document.getElementById('forwardedQueries').textContent = formatNumber(stats.dns.forwarded);
+      document.getElementById('cacheHitRate').textContent = (stats.dns.cacheHitRate * 100).toFixed(1) + '%';
+      document.getElementById('activeConnections').textContent = formatNumber(stats.proxy.activeConnections);
+      document.getElementById('totalRequests').textContent = formatNumber(stats.proxy.totalRequests);
+      document.getElementById('bandwidthUp').textContent = formatBytes(stats.proxy.bandwidthUp);
+      document.getElementById('bandwidthDown').textContent = formatBytes(stats.proxy.bandwidthDown);
+    }
+
+    // Update exit status
+    function updateExitStatus() {
+      const statusEl = document.getElementById('exitStatus');
+      const statusText = document.getElementById('exitStatusText');
+      
+      statusEl.className = 'exit-status ' + (exitHealth.status || 'unknown');
+      statusText.textContent = exitHealth.status === 'healthy' 
+        ? `${exitHealth.region || 'ASIA'} ${exitHealth.latencyMs ? '(' + exitHealth.latencyMs + 'ms)' : ''}`
+        : exitHealth.status || 'Unknown';
+      
+      document.getElementById('exitMethod').textContent = (exitHealth.method || '--').replace('_', ' ').toUpperCase();
+      document.getElementById('exitRegion').textContent = (exitHealth.region || '--').toUpperCase();
+      document.getElementById('exitLatency').textContent = exitHealth.latencyMs ? exitHealth.latencyMs + 'ms' : '--';
+    }
+
+    // Update uptime
+    function updateUptime() {
+      uptimeSeconds++;
+      const hours = Math.floor(uptimeSeconds / 3600);
+      const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+      const seconds = uptimeSeconds % 60;
+      document.getElementById('uptime').textContent = 
+        `Uptime: ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    // Render sparkline chart
+    function renderSparkline() {
+      const rpm = stats.rpm || [];
+      if (rpm.length === 0) return;
+      
+      const max = Math.max(...rpm, 1);
+      const width = 600;
+      const height = 120;
+      const padding = 10;
+      
+      const points = rpm.map((val, i) => {
+        const x = (i / (rpm.length - 1)) * (width - padding * 2) + padding;
+        const y = height - padding - (val / max) * (height - padding * 2);
+        return `${x},${y}`;
+      }).join(' ');
+      
+      const areaPoints = `${padding},${height - padding} ${points} ${width - padding},${height - padding}`;
+      
+      rpmChart.innerHTML = `
+        <polygon class="area" points="${areaPoints}" />
+        <polyline class="line" points="${points}" />
+      `;
+    }
+
+    // Load domains
+    async function loadDomains() {
+      try {
+        const res = await fetch('/api/domains');
+        const domains = await res.json();
+        renderDomains(domains);
+      } catch (e) {
+        showError('Failed to load domains: ' + e.message);
+      }
+    }
+
+    // Render domains
+    function renderDomains(domains) {
+      domainList.innerHTML = domains.map(d => `
+        <div class="domain-item" data-domain="${escapeHtml(d.pattern)}">
+          <div class="domain-info">
+            <span class="domain-pattern">${escapeHtml(d.pattern)}</span>
+            ${d.isWildcard ? '<span class="domain-wildcard">WILDCARD</span>' : ''}
+          </div>
+          <div class="domain-actions">
+            <div class="toggle-switch ${d.enabled ? 'enabled' : ''}" onclick="toggleDomain('${escapeJs(d.pattern)}')"></div>
+            <button class="delete-btn" onclick="deleteDomain('${escapeJs(d.pattern)}')">Delete</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Add domain
+    addDomainForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const domain = domainInput.value.trim();
+      if (!domain) return;
+      
+      try {
+        const res = await fetch('/api/domains', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ domain })
+        });
+        
+        if (!res.ok) throw new Error('Failed to add domain');
+        
+        domainInput.value = '';
+        loadDomains();
+      } catch (e) {
+        showError('Failed to add domain: ' + e.message);
+      }
+    });
+
+    // Toggle domain
+    window.toggleDomain = async (domain) => {
+      try {
+        await fetch(`/api/domains/${encodeURIComponent(domain)}`, { method: 'PUT' });
+        loadDomains();
+      } catch (e) {
+        showError('Failed to toggle domain: ' + e.message);
+      }
+    };
+
+    // Delete domain
+    window.deleteDomain = async (domain) => {
+      if (!confirm(`Delete ${domain}?`)) return;
+      
+      try {
+        await fetch(`/api/domains/${encodeURIComponent(domain)}`, { method: 'DELETE' });
+        loadDomains();
+      } catch (e) {
+        showError('Failed to delete domain: ' + e.message);
+      }
+    };
+
+    // Export domains
+    exportBtn.addEventListener('click', () => {
+      window.location.href = '/api/domains/export';
+    });
+
+    // Import domains (drag & drop)
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      
+      const file = e.dataTransfer.files[0];
+      if (!file) return;
+      
+      const text = await file.text();
+      const domains = text.split('\n').map(d => d.trim()).filter(d => d);
+      
+      try {
+        const res = await fetch('/api/domains/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ domains })
+        });
+        
+        if (!res.ok) throw new Error('Failed to import');
+        
+        loadDomains();
+      } catch (e) {
+        showError('Failed to import domains: ' + e.message);
+      }
+    });
+
+    // Pause/resume logs
+    pauseBtn.addEventListener('click', () => {
+      isPaused = !isPaused;
+      pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
+      pauseBtn.classList.toggle('active', isPaused);
+    });
+
+    // Filter events
+    logFilter.addEventListener('input', renderLogs);
+    routeFilter.addEventListener('change', renderLogs);
+
+    // Utility functions
+    function formatTime(isoString) {
+      const d = new Date(isoString);
+      return d.toLocaleTimeString('en-US', { hour12: false });
+    }
+
+    function formatNumber(n) {
+      return n.toLocaleString();
+    }
+
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function escapeJs(str) {
+      return String(str).replace(/'/g, "\\'").replace(/\\/g, '\\\\');
+    }
+
+    function showError(msg) {
+      errorBanner.textContent = msg;
+      errorBanner.classList.add('show');
+      setTimeout(() => errorBanner.classList.remove('show'), 5000);
+    }
+
+    function hideError() {
+      errorBanner.classList.remove('show');
+    }
+
+    // Initialize
+    connectWebSocket();
+    loadDomains();
+    setInterval(updateUptime, 1000);
+
+    // Fetch initial stats
+    fetch('/api/status')
+      .then(r => r.json())
+      .then(data => {
+        uptimeSeconds = data.uptime || 0;
+        if (data.exitNode) {
+          handleExitHealth(data.exitNode);
+        }
+      })
+      .catch(() => {});
+  </script>
+</body>
+</html>

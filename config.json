@@ -1,0 +1,45 @@
+{
+  "proxy_ip": "10.0.0.1",
+  "dns": {
+    "listen": "0.0.0.0:53",
+    "upstream_au": ["61.8.0.113", "203.12.160.35", "1.1.1.1"],
+    "upstream_asia": ["1.0.0.1", "8.8.4.4"],
+    "cache_ttl": 300
+  },
+  "asian_exit": {
+    "method": "socks5",
+    "socks5": {
+      "host": "your-asian-vps.example.com",
+      "port": 1080,
+      "username": "",
+      "password": ""
+    },
+    "http_proxy": {
+      "host": "your-asian-vps.example.com",
+      "port": 8888
+    },
+    "wireguard_interface": "wg-asia0",
+    "dns_resolvers": ["103.2.57.5", "103.86.96.100"],
+    "region_label": "sg"
+  },
+  "proxy": {
+    "http_port": 6000,
+    "https_port": 443,
+    "ca_cert": "./certs/ca.pem",
+    "ca_key": "./certs/ca-key.pem"
+  },
+  "proxied_domains": [
+    "example.com",
+    "*.blocked-site.net",
+    "specific-page.org"
+  ],
+  "logging": {
+    "level": "info",
+    "file": "./logs/proxy.log"
+  },
+  "dashboard": {
+    "enabled": true,
+    "port": 3000,
+    "password": ""
+  }
+}

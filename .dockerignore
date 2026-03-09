@@ -1,0 +1,13 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+*.md
+.env
+.env.*
+logs/*.log
+certs/*.pem
+certs/*.key
+!certs/.gitkeep
+.DS_Store
+Thumbs.db
