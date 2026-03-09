@@ -436,9 +436,16 @@ class DnsServer extends EventEmitter {
    */
   _estimateRecordSize(record) {
     let size = 0;
-    size += record.name.length + 2; // Name with compression
+    // Name: each label needs 1 byte for length prefix, plus 1 byte for null terminator
+    const labels = record.name.split('.');
+    for (const label of labels) {
+      if (label.length > 0) {
+        size += 1 + label.length; // length byte + label
+      }
+    }
+    size += 1; // null terminator
     size += 10; // Type (2) + Class (2) + TTL (4) + Data length (2)
-    
+
     if (record.type === DNS_TYPES.A) {
       size += 4;
     } else if (record.type === DNS_TYPES.AAAA) {
@@ -446,7 +453,7 @@ class DnsServer extends EventEmitter {
     } else {
       size += String(record.data).length;
     }
-    
+
     return size;
   }
 
