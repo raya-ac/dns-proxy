@@ -21,7 +21,7 @@ if (-not $isAdmin) {
 
 Write-Host "[1/4] Downloading CA certificate..." -ForegroundColor Green
 try {
-    $caUrl = "http://$ProxyIP:$DashboardPort/api/ca-cert"
+    $caUrl = "http://${ProxyIP}:${DashboardPort}/api/ca-cert"
     $caPath = "$env:TEMP\dns-proxy-ca.pem"
     Invoke-WebRequest -Uri $caUrl -OutFile $caPath -UseBasicParsing
     Write-Host "  Downloaded to: $caPath" -ForegroundColor Gray
@@ -82,7 +82,7 @@ Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Your DNS is now configured to use: $ProxyIP" -ForegroundColor White
 Write-Host ""
-Write-Host "Dashboard: http://$ProxyIP:$DashboardPort" -ForegroundColor Cyan
+Write-Host "Dashboard: http://${ProxyIP}:${DashboardPort}" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "To add domains to proxy:" -ForegroundColor Yellow
 Write-Host "  1. Open the dashboard in your browser" -ForegroundColor Gray
