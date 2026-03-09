@@ -398,16 +398,23 @@ class DnsServer extends EventEmitter {
    */
   _createResponseBuffer(query, responseData) {
     const answers = responseData.answers || [];
-    
+
     // Calculate response size
     let size = 12; // Header
+    
+    // Add size for questions (echo back)
+    for (const question of query.questions) {
+      size += this._estimateQuestionSize(question);
+    }
+    
+    // Add size for answers
     for (const answer of answers) {
       size += this._estimateRecordSize(answer);
     }
-    
+
     const buffer = Buffer.alloc(size);
     let offset = 0;
-    
+
     // Header
     buffer.writeUInt16BE(query.header.id, offset); offset += 2;
     buffer.writeUInt16BE(0x8180, offset); offset += 2; // Response, no error
@@ -415,20 +422,37 @@ class DnsServer extends EventEmitter {
     buffer.writeUInt16BE(answers.length, offset); offset += 2;
     buffer.writeUInt16BE(0, offset); offset += 2; // Authority
     buffer.writeUInt16BE(0, offset); offset += 2; // Additional
-    
+
     // Questions (echo back)
     for (const question of query.questions) {
       offset = this._writeName(buffer, question.name, offset);
       buffer.writeUInt16BE(question.type, offset); offset += 2;
       buffer.writeUInt16BE(question.class, offset); offset += 2;
     }
-    
+
     // Answers
     for (const answer of answers) {
       offset = this._writeRecord(buffer, answer, offset);
     }
-    
+
     return buffer.slice(0, offset);
+  }
+
+  /**
+   * Estimate the size of a DNS question
+   */
+  _estimateQuestionSize(question) {
+    let size = 0;
+    // Name: each label needs 1 byte for length prefix, plus 1 byte for null terminator
+    const labels = question.name.split('.');
+    for (const label of labels) {
+      if (label.length > 0) {
+        size += 1 + label.length; // length byte + label
+      }
+    }
+    size += 1; // null terminator
+    size += 4; // Type (2) + Class (2)
+    return size;
   }
 
   /**
