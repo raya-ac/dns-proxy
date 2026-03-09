@@ -461,7 +461,7 @@ class DnsServer extends EventEmitter {
   _estimateRecordSize(record) {
     let size = 0;
     size += 2; // Compression pointer (0xC00C)
-    size += 10; // Type (2) + Class (2) + TTL (4) + Data length (2)
+    size += 14; // Type (2) + Class (2) + TTL (4) + Data length (2)
 
     if (record.type === DNS_TYPES.A) {
       size += 4;
@@ -495,12 +495,12 @@ class DnsServer extends EventEmitter {
    * Write a DNS record to buffer
    */
   _writeRecord(buffer, record, offset) {
-    // Use compression pointer if record name matches question (offset 12)
-    // Compression pointer: 0xC0 | (offset >> 8), offset & 0xFF
+    // Use compression pointer to question name at offset 12
     buffer.writeUInt16BE(0xC00C, offset); offset += 2;
 
     buffer.writeUInt16BE(record.type, offset); offset += 2;
     buffer.writeUInt16BE(record.class, offset); offset += 2;
+    buffer.writeUInt32BE(record.ttl, offset); offset += 4;
 
     // Prepare data
     let data;
